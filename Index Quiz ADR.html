@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Interattivo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+        }
+        .question {
+            margin-bottom: 20px;
+        }
+        .answers {
+            list-style: none;
+            padding: 0;
+        }
+        .answers li {
+            margin-bottom: 10px;
+        }
+        .controls {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Quiz Interattivo</h1>
+        <label for="level">Seleziona Livello:</label>
+        <select id="level">
+            <option value="1">Livello 1 - Domande in ordine per argomento</option>
+            <option value="2">Livello 2 - Domande casuali per argomento</option>
+            <option value="3">Livello 3 - 10 domande miste (paginato)</option>
+        </select>
+
+        <label for="topic">Seleziona Argomento:</label>
+        <select id="topic">
+            <!-- Gli argomenti verranno generati dinamicamente -->
+        </select>
+
+        <div id="quiz">
+            <!-- Il quiz verrà generato dinamicamente -->
+        </div>
+
+        <div class="controls">
+            <button id="prev">Precedente</button>
+            <button id="next">Successivo</button>
+            <button id="submit">Invia Risposte</button>
+            <button id="reset">Reset</button>
+        </div>
+
+        <div id="result" style="margin-top: 20px;"></div>
+    </div>
+
+    <script>
+let quizData = [];
+
+// Modifica l'URL con il percorso corretto del tuo file JSON su GitHub
+fetch('https://raw.githubusercontent.com/chitolds/ADR-Quiz/579e3f21a9404ed691ecfba78e7369b8368a0fa9/quiz_database_clean.json')
+    .then(response => response.json())
+    .then(data => {
+        quizData = data;
+
+        // Genera il quiz dopo aver caricato i dati
+        generaArgomenti();
+        generaQuiz();
+    })
+    .catch(error => console.error("Errore durante il fetch del JSON:", error));
+
+        let currentPage = 0;
+        const itemsPerPage = 2;
+        const levelSelect = document.getElementById('level');
+        const topicSelect = document.getElementById('topic');
+        const quizContainer = document.getElementById('quiz');
+        const resultContainer = document.getElementById('result');
+        const prevButton = document.getElementById('prev');
+        const nextButton = document.getElementById('next');
+
+        const argomenti = [...new Set(quizData.map(q => q.argomento))];
+
+        if (argomenti.length === 0) {
+            console.error("Nessun argomento trovato nei dati del quiz.");
+        } else {
+            argomenti.forEach(arg => {
+                const option = document.createElement('option');
+                option.value = arg;
+                option.textContent = arg;
+                topicSelect.appendChild(option);
+            });
+        }
+
+        function generaQuiz() {
+            const livello = levelSelect.value;
+            const argomento = topicSelect.value || argomenti[0];
+
+            let domandeFiltrate;
+
+            if (livello === "1" || livello === "2") {
+                domandeFiltrate = quizData.filter(q => q.argomento === argomento);
+                if (livello === "2") {
+                    domandeFiltrate = domandeFiltrate.sort(() => Math.random() - 0.5);
+                }
+            } else if (livello === "3") {
+                domandeFiltrate = quizData.sort(() => Math.random() - 0.5).slice(0, itemsPerPage * 3);
+            }
+
+            const paginatedQuestions = domandeFiltrate.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
+
+            quizContainer.innerHTML = "";
+            paginatedQuestions.forEach((domanda, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.classList.add('question');
+
+                const questionText = document.createElement('p');
+                questionText.textContent = `${currentPage * itemsPerPage + index + 1}. ${domanda.domanda}`;
+                questionDiv.appendChild(questionText);
+
+                const answersList = document.createElement('ul');
+                answersList.classList.add('answers');
+
+                domanda.risposte.forEach((risposta, i) => {
+                    const listItem = document.createElement('li');
+                    listItem.innerHTML = `
+                        <label>
+                            ${risposta}<br>
+                            <input type="radio" name="question-${index}-answer-${i}" value="V"> Vero
+                            <input type="radio" name="question-${index}-answer-${i}" value="F"> Falso
+                        </label>
+                    `;
+                    answersList.appendChild(listItem);
+                });
+
+                questionDiv.appendChild(answersList);
+                quizContainer.appendChild(questionDiv);
+            });
+
+            prevButton.style.display = currentPage > 0 ? "inline-block" : "none";
+            nextButton.style.display = ((currentPage + 1) * itemsPerPage) < domandeFiltrate.length ? "inline-block" : "none";
+        }
+
+        levelSelect.addEventListener('change', () => {
+            currentPage = 0;
+            generaQuiz();
+        });
+
+        topicSelect.addEventListener('change', () => {
+            currentPage = 0;
+            generaQuiz();
+        });
+
+        prevButton.addEventListener('click', () => {
+            if (currentPage > 0) {
+                currentPage--;
+                generaQuiz();
+            }
+        });
+
+        nextButton.addEventListener('click', () => {
+            currentPage++;
+            generaQuiz();
+        });
+
+        document.getElementById('submit').addEventListener('click', () => {
+            const questions = document.querySelectorAll('.question');
+            let score = 0;
+            let total = 0;
+
+            questions.forEach((question, qIndex) => {
+                const answers = question.querySelectorAll('input[type="radio"]:checked');
+
+                answers.forEach((answer, aIndex) => {
+                    total++;
+                    if (answer.value === quizData[qIndex].soluzioni[aIndex]) {
+                        score++;
+                    }
+                });
+            });
+
+            resultContainer.textContent = `Punteggio: ${score} su ${total}`;
+        });
+
+        document.getElementById('reset').addEventListener('click', () => {
+            currentPage = 0;
+            quizContainer.innerHTML = "";
+            resultContainer.textContent = "";
+            generaQuiz();
+        });
+
+        generaQuiz();
+    </script>
+</body>
+</html>
