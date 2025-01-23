@@ -72,6 +72,21 @@ fetch('https://raw.githubusercontent.com/chitolds/ADR-Quiz/579e3f21a9404ed691ecf
     })
     .catch(error => console.error("Errore durante il fetch del JSON:", error));
 
+        function generaArgomenti() {
+    const argomenti = [...new Set(quizData.map(q => q.argomento))];
+    const topicSelect = document.getElementById('topic');
+    argomenti.forEach(arg => {
+        const option = document.createElement('option');
+        option.value = arg;
+        option.textContent = arg;
+        topicSelect.appendChild(option);
+    });
+}
+
+function generaQuiz() {
+    // Logica per generare il quiz
+}
+
         let currentPage = 0;
         const itemsPerPage = 2;
         const levelSelect = document.getElementById('level');
